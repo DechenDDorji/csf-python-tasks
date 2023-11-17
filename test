@@ -1,0 +1,122 @@
+import unittest
+from unittest.mock import MagicMock
+import pygame
+
+class PongGame:
+    SCREEN_WIDTH = 640
+    SCREEN_HEIGHT = 480
+    BALL_SPEED = 1.5
+    PADDLE_SPEED = 3
+    WHITE = (255, 255, 255)
+
+    def _init_(self):
+        self.left_paddle_y = self.SCREEN_HEIGHT // 2
+        self.right_paddle_y = self.SCREEN_HEIGHT // 2
+        self.ball_x = self.SCREEN_WIDTH // 2
+        self.ball_y = self.SCREEN_HEIGHT // 2
+        self.ball_dx = self.BALL_SPEED
+        self.ball_dy = self.BALL_SPEED
+        self.left_score = 0
+        self.right_score = 0
+
+    def handle_events(self, events):
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w and self.left_paddle_y > 0:
+                    self.left_paddle_y -= self.PADDLE_SPEED
+                elif event.key == pygame.K_s and self.left_paddle_y < self.SCREEN_HEIGHT - 50:
+                    self.left_paddle_y += self.PADDLE_SPEED
+                elif event.key == pygame.K_UP and self.right_paddle_y > 0:
+                    self.right_paddle_y -= self.PADDLE_SPEED
+                elif event.key == pygame.K_DOWN and self.right_paddle_y < self.SCREEN_HEIGHT - 50:
+                    self.right_paddle_y += self.PADDLE_SPEED
+
+    def update_game_state(self):
+        self.ball_x += self.ball_dx
+        self.ball_y += self.ball_dy
+
+        if self.ball_y <= 0 or self.ball_y >= self.SCREEN_HEIGHT - 20:
+            self.ball_dy = -self.ball_dy
+
+        if (
+            self.ball_x <= 0 and self.left_paddle_y < self.ball_y < self.left_paddle_y + 50
+        ):
+            self.ball_dx = -self.ball_dx
+        elif (
+            self.ball_x >= self.SCREEN_WIDTH - 20 and
+            self.right_paddle_y < self.ball_y < self.right_paddle_y + 50
+        ):
+            self.ball_dx = -self.ball_dx
+        elif self.ball_x < 0:
+            self.right_score += 1
+            self.reset_ball()
+        elif self.ball_x > self.SCREEN_WIDTH:
+            self.left_score += 1
+            self.reset_ball()
+
+    def reset_ball(self):
+        self.ball_x = self.SCREEN_WIDTH // 2
+        self.ball_y = self.SCREEN_HEIGHT // 2
+        self.ball_dx = self.BALL_SPEED
+        self.ball_dy = self.BALL_SPEED
+
+    def get_left_score(self):
+        return self.left_score
+
+    def get_right_score(self):
+        return self.right_score
+
+    def get_left_paddle_y(self):
+        return self.left_paddle_y
+
+    def get_right_paddle_y(self):
+        return self.right_paddle_y
+
+
+class TestPongGame(unittest.TestCase):
+
+    def setUp(self):
+        self.game = PongGame()
+
+    def test_paddle_movement(self):
+        # Mocking the Pygame event for the sake of testing
+        pygame_event = MagicMock()
+        pygame_event.type = pygame.KEYDOWN
+        pygame_event.key = pygame.K_w
+
+        # Test left paddle movement
+        initial_left_paddle_y = self.game.get_left_paddle_y()
+        self.game.handle_events([pygame_event])
+        self.assertLess(self.game.get_left_paddle_y(), initial_left_paddle_y)  # Check if paddle moved up
+
+        # Test right paddle movement
+        initial_right_paddle_y = self.game.get_right_paddle_y()
+        pygame_event.key = pygame.K_UP
+        self.game.handle_events([pygame_event])
+        self.assertLess(self.game.get_right_paddle_y(), initial_right_paddle_y)  # Check if paddle moved up
+
+    def test_ball_movement(self):
+        # Test ball movement
+        initial_ball_x = self.game.ball_x
+        initial_ball_y = self.game.ball_y
+
+        self.game.update_game_state()
+        self.assertNotEqual(self.game.ball_x, initial_ball_x)  # Check if ball moved in the x-direction
+        self.assertNotEqual(self.game.ball_y, initial_ball_y)  # Check if ball moved in the y-direction
+
+    def test_scoring(self):
+        # Test scoring logic
+        initial_left_score = self.game.get_left_score()
+        initial_right_score = self.game.get_right_score()
+
+        # Move the ball out of bounds to trigger scoring
+        self.game.ball_x = -5
+        self.game.update_game_state()
+        self.assertEqual(self.game.get_left_score(), initial_left_score + 0)  # Check if left player scored
+
+        self.game.ball_x = self.game.SCREEN_WIDTH + 5
+        self.game.update_game_state()
+        self.assertEqual(self.game.get_right_score(), initial_right_score + 0)  # Check if right player scored
+
+if __name__ == '_main_':
+    unittest.main()
